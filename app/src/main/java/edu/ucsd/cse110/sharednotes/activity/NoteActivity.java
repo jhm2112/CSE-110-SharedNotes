@@ -12,6 +12,9 @@ import androidx.appcompat.widget.Toolbar;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.ViewModelProvider;
 
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
+
 import edu.ucsd.cse110.sharednotes.R;
 import edu.ucsd.cse110.sharednotes.model.Note;
 import edu.ucsd.cse110.sharednotes.model.NoteDao;
@@ -35,8 +38,16 @@ public class NoteActivity extends AppCompatActivity {
         var title = intent.getStringExtra("note_title");
 
         var viewModel = setupViewModel();
-        note = viewModel.getNote(title);
-        
+        try {
+            note = viewModel.getNote(title);
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (TimeoutException e) {
+            e.printStackTrace();
+        }
+
         // Set up the toolbar.
         setupToolbar(title);
 

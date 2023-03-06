@@ -3,16 +3,18 @@ package edu.ucsd.cse110.sharednotes.model;
 import android.util.Log;
 
 import androidx.annotation.AnyThread;
-import androidx.annotation.MainThread;
 import androidx.annotation.WorkerThread;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
+import okhttp3.RequestBody;
 
 public class NoteAPI {
     // TODO: Implement the API using OkHttp!
@@ -24,6 +26,9 @@ public class NoteAPI {
     private volatile static NoteAPI instance = null;
 
     private OkHttpClient client;
+
+    public static final MediaType JSON
+            = MediaType.get("application/json; charset=utf-8");
 
     public NoteAPI() {
         this.client = new OkHttpClient();
@@ -73,4 +78,62 @@ public class NoteAPI {
         // We can use future.get(1, SECONDS) to wait for the result.
         return future;
     }
+
+    @AnyThread
+    public Future<String> getNoteAsync(String msg) {
+        var executor = Executors.newSingleThreadExecutor();
+        var future = executor.submit(() -> getNote(msg));
+
+        return future;
+    }
+
+    public String getNote(String msg) {
+        // URLs cannot contain spaces, so we replace them with %20.
+        msg = msg.replace(" ", "%20");
+
+        var request = new Request.Builder()
+                .url("https://sharednotes.goto.ucsd.edu/notes/" + msg)
+                .build();
+
+        try (var response = client.newCall(request).execute()) {
+            assert response.body() != null;
+            var body = response.body().string();
+            if(body.contains("Note not found")){return null;}
+            Log.i("GET", body);
+            return body;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public void putNoteAsync(String msg, String json){
+        var executor = Executors.newSingleThreadExecutor();
+        executor.submit(() -> putNote(msg, json));
+    }
+
+    public void putNote(String msg, String json) {
+        // URLs cannot contain spaces, so we replace them with %20.
+        msg = msg.replace(" ", "%20");
+
+        Gson gson = new Gson();
+        JsonElement jsonObj = gson.fromJson(json, JsonElement.class);
+        jsonObj.getAsJsonObject().remove("title");
+
+        RequestBody content = RequestBody.create(jsonObj.toString(), JSON);
+        var request = new Request.Builder()
+                .url("https://sharednotes.goto.ucsd.edu/notes/" + msg)
+                .method("PUT", content)
+                .build();
+
+        try (var response = client.newCall(request).execute()) {
+            assert response.body() != null;
+            var body = response.body().string();
+            Log.i("PUT", body);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+
 }
